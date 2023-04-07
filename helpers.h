@@ -1,4 +1,3 @@
-#include <sys/types.h>
 #ifndef MAKEFILE_HELPERS_H
 #define MAKEFILE_HELPERS_H
 
@@ -8,5 +7,7 @@ typedef struct{
     pid_t threadId;
     int cCount;
 }data;
+//=====================================Functions
+void producer(int pType, int fd[2]);
 
 #endif
