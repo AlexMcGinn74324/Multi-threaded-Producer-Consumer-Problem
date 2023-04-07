@@ -17,6 +17,8 @@
 void producer(int pType, int fd[2]){
     int pCount = 0; //initialize this producer's count to 0
     unsigned int timer = 10000;//10,000 microseconds is .01s, the lower bound of our restriction. Sleeps for at least that
+    size_t size = 16;
+
 
     printf("Fd1: %d, Fd2: %d\n", fd[0], fd[1]);
     //loop to create product
@@ -28,19 +30,13 @@ void producer(int pType, int fd[2]){
             perror("usleep in producer function");
             exit(1);
         }
+        close(fd[0]);   //close read end
+        write(fd[1], &cur, size);
         if(i == 149)
             printf("Product Type: %d, Product Count: %d\n", cur.pType, cur.pCount);
     }
+    close(fd[1]);
     //send -1 count to pipe
 
     exit(1);
-}
-//==================================================================================
-
-void consumer(){
-//threads arguments must  be cast to void* and back after
-}
-
-void distributor(){
-
 }
