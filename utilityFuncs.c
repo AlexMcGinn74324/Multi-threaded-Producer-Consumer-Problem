@@ -32,9 +32,13 @@ void producer(int pType, int fd[2]){
         }
         close(fd[0]);   //close read end
         write(fd[1], &cur, size);
-        if(i == 149)
+        if(i == 149){
+            cur.pType = -1;
+            write(fd[1], &cur, size);
             printf("Product Type: %d, Product Count: %d\n", cur.pType, cur.pCount);
+        }
     }
+
     close(fd[1]);
     //send -1 count to pipe
 
