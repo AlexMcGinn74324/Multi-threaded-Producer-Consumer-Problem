@@ -20,9 +20,9 @@ void producer(int pType, int fd[2]){
     size_t size = 16;
 
 
-    printf("Fd1: %d, Fd2: %d\n", fd[0], fd[1]);
+//    printf("Fd1: %d, Fd2: %d\n", fd[0], fd[1]);
     //loop to create product
-    for(int i = 0; i < 150; i++){
+    for(int i = 0; i <= 150; i++){
         pCount++;
         data cur = {pType,pCount, 0, 0}; //initialize each element, consumer count/thread id to be updated later
 
@@ -31,12 +31,14 @@ void producer(int pType, int fd[2]){
             exit(1);
         }
         close(fd[0]);   //close read end
-        write(fd[1], &cur, size);
-        if(i == 149){
+        if(i == 150){   //the 151st iteration
             cur.pType = -1;
             write(fd[1], &cur, size);
-            printf("Product Type: %d, Product Count: %d\n", cur.pType, cur.pCount);
+            close(fd[1]);
+            exit(1);
+//            printf("Product Type: %d, Product Count: %d\n", cur.pType, cur.pCount);
         }
+        write(fd[1], &cur, size);
     }
 
     close(fd[1]);

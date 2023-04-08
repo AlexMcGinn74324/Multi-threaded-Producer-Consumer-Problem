@@ -23,14 +23,27 @@ void* distributor(void* fd);
  * Condition Variables and Mutex locks(not semaphores)
  * OSTEP Chapter 30 (locks, cond vars, circular queue)
  * Chapter 26 (Threads)
+ *
+ * Left Off: Created both buffers and added all produced
+ * of product1/2, retrieved from shared pipe. Queue has
+ * ways to add and remove from queue (although to retrieve
+ * values you will need to access each element to save and
+ * then dequeue).
+ * Should each queue have a shared consumption value as
+ * well as the stored value for each node for writing to
+ * file?
+ *
+ * Need to free nodes after dequeue (used to be done in dequeue function)
  */
 
 int main(int argc, char* argv[]){
     int fd[2];  //single pipe
     p1 = createQueue();   //creates queue, assigns front and rear to NULL
-
+    p2 = createQueue();
+    struct QNode* node = newNode(0,0);
     pthread_t distId;
 
+    puts("Begin Program:");
     pipe(fd);   //pipe for communicating between producers/distributor
     int prod1 = 0, prod2 = 0;
 
@@ -56,7 +69,7 @@ int main(int argc, char* argv[]){
 //    puts("Parent changes p1 after thread execution");
 //    enQueue(p1,2);
 
-    puts("Test");
+
 
 
     //main will be the consumer process
@@ -80,7 +93,21 @@ int main(int argc, char* argv[]){
         exit(1);
     }
 //    deQueue(p1);
-    printf("Queue: %d\n", p1->front->key);
+//    deQueue(p1);
+//    deQueue(p1);
+    while( (node = deQueue(p1)) != NULL){
+        printf("Returned Node: pType: %d, pCount: %d\n", node->pType, node->pCount);
+    }
+    while( (node = deQueue(p2)) != NULL){
+        printf("Returned Node: pType: %d, pCount: %d\n", node->pType, node->pCount);
+    }
+
+    if(p1->front != NULL){
+        printf("Queue 1 pType: %d, pCount: %d, size: %d\n", p1->front->pType, p1->front->pCount, p1->size);
+    }
+    if(p2->front != NULL){
+        printf("Queue 2 pType: %d, pCount: %d, size: %d\n", p2->front->pType, p2->front->pCount, p2->size);
+    }
 
     return 0;
 }
@@ -101,7 +128,9 @@ void* distributor(void* fd){
         if(new.pType == -1){
             done++;
         }else if(new.pType == 1){
-            enQueue(p1, new.pCount);
+            enQueue(p1, new.pType, new.pCount);
+        }else if(new.pType == 2){
+            enQueue(p2, new.pType, new.pCount);
         }
 //        printf("Type: %d, Count: %d, done: %d \n", new.pType, new.pCount, done);
     }

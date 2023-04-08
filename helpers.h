@@ -4,7 +4,7 @@
 typedef struct{
     int pType;
     int pCount;
-    int threadId;
+    int tId;
     int cCount;
 }data;
 
@@ -17,7 +17,10 @@ typedef struct{
 
 // A linked list (LL) node to store a queue entry
 struct QNode {
-    int key;
+    int pType;  //we need to store product type, product count,
+    int pCount; //thread id, and consumer count for each item written to file
+    int tId;
+    int cCount;
     struct QNode* next;
 };
 
@@ -25,14 +28,15 @@ struct QNode {
 // stores the last node of LL
 struct Queue {
     struct QNode *front, *rear;
+    int size;
 };
 
 
 //=====================================Functions
 void producer(int pType, int fd[2]);
-void enQueue(struct Queue* q, int k);
-void deQueue(struct Queue* q);
+void enQueue(struct Queue* q, int pType, int pCount);
+struct QNode* deQueue(struct Queue* q);
 struct Queue* createQueue();
-struct QNode* newNode(int k);
+struct QNode* newNode(int pType, int pCount);
 
 #endif
