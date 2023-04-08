@@ -10,8 +10,9 @@
 //=============================Constants
 #define MAX1 60
 #define MAX2 75
-//===============buffer vars
+//===============buffers
 struct Queue* p1;
+struct Queue* p2;
 //==============
 void put(int value, int buffer[], int fill_ptr, int count, int max);
 int get(int use_ptr, int buffer[], int count, int max);
@@ -52,9 +53,8 @@ int main(int argc, char* argv[]){
     }
 
 
-    puts("Parent changes p1 after thread execution");
-    enQueue(p1,2);
-//    printf("Queue: %d\n", p1->front->key);
+//    puts("Parent changes p1 after thread execution");
+//    enQueue(p1,2);
 
     puts("Test");
 
@@ -71,19 +71,22 @@ int main(int argc, char* argv[]){
 
 
 //    parent waits for child processes
-        if( (waitpid(prod1, NULL, 0)) == -1){
-            perror("waitpid prod1 in main");
-            exit(1);
-        }
-        if( (waitpid(prod2, NULL, 0)) == -1){
-            perror("waitpid prod2 in main");
-            exit(1);
-        }
-
+    if( (waitpid(prod1, NULL, 0)) == -1){
+        perror("waitpid prod1 in main");
+        exit(1);
+    }
+    if( (waitpid(prod2, NULL, 0)) == -1){
+        perror("waitpid prod2 in main");
+        exit(1);
+    }
+//    deQueue(p1);
+    printf("Queue: %d\n", p1->front->key);
 
     return 0;
 }
-//thread functions should be of type void* and any arguments passed to it should be type void*
+//==============================================================Distributor Thread
+//thread functions should be of type void* and any arguments
+// passed to it should be type void*
 void* distributor(void* fd){
     int done = 0;
     data new = {0, 0, 0, 0};
@@ -98,10 +101,11 @@ void* distributor(void* fd){
         if(new.pType == -1){
             done++;
         }else if(new.pType == 1){
+            enQueue(p1, new.pCount);
         }
 //        printf("Type: %d, Count: %d, done: %d \n", new.pType, new.pCount, done);
     }
-    printf("Child sees change Queue: %d\n", p1->front->key);
+//    printf("Child sees change Queue: %d\n", p1->front->key);
     return NULL;
 }
 
@@ -110,7 +114,7 @@ void* distributor(void* fd){
 
 
 
-//Old buffer implementation
+//=======================================================================Old buffer implementation (Ignore)
 //From OSTEP Chapter 30
 //create global variables for buffer1/2, fillptr1/2, max 1/2 and use them to pass in values for each buffer
 //void put(int value, int buffer[], int fill_ptr, int count, int max) {
