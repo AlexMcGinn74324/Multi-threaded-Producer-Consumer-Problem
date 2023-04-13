@@ -18,19 +18,18 @@ void producer(int pType, int fd[2]){
     int pCount = 0; //initialize this producer's count to 0
     unsigned int timer = 10000;//10,000 microseconds is .01s, the lower bound of our restriction. Sleeps for at least that
     size_t size = 16;
-
+    close(fd[0]);   //close read end
 
 //    printf("Fd1: %d, Fd2: %d\n", fd[0], fd[1]);
     //loop to create product
     for(int i = 0; i <= 150; i++){
         pCount++;
         data cur = {pType,pCount, 0, 0}; //initialize each element, consumer count/thread id to be updated later
-
         if( (usleep(timer)) == -1) { //sleep
             perror("usleep in producer function");
             exit(1);
         }
-        close(fd[0]);   //close read end
+
         if(i == 150){   //the 151st iteration
             cur.pType = -1;
             write(fd[1], &cur, size);

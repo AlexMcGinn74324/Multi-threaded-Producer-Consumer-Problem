@@ -1,4 +1,5 @@
 #include "helpers.h"
+#include <pthread.h>
 
 // A utility function to create a new linked list node.
 struct QNode* newNode(int pType, int pCount)
@@ -13,16 +14,24 @@ struct QNode* newNode(int pType, int pCount)
 }
 
 // A utility function to create an empty queue
-struct Queue* createQueue()
-{
+struct Queue* createQueue(int max){
     struct Queue* q = (struct Queue*)malloc(sizeof(struct Queue));
     q->front = q->rear = NULL;
     q->size = 0;
+    q->maxSize = max;
     return q;
 }
 // The function to add a key k to q
-void enQueue(struct Queue* q, int pType, int pCount)
-{
+void enQueue(struct Queue* q, int pType, int pCount, struct locks lock){
+
+    //lock the buffer
+    puts("Test1");
+        pthread_mutex_lock(&lock.mutex);
+    pthread_mutex_unlock(&lock.mutex);
+
+    //wait for the buffer to not be full
+//    while(q->size);
+
     // Create a new LL node
     struct QNode* temp = newNode(pType, pCount);
 
@@ -30,6 +39,12 @@ void enQueue(struct Queue* q, int pType, int pCount)
     // both
     if (q->rear == NULL) {
         q->front = q->rear = temp;
+
+        puts("Test2");
+
+
+
+
         return;
     }
 

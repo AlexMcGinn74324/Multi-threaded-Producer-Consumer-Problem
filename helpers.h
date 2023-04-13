@@ -1,6 +1,8 @@
 #ifndef MAKEFILE_HELPERS_H
 #define MAKEFILE_HELPERS_H
-
+#include <stdio.h>
+#include <stdlib.h>
+#include <pthread.h>
 typedef struct{
     int pType;
     int pCount;
@@ -8,11 +10,17 @@ typedef struct{
     int cCount;
 }data;
 
+struct locks{
+    pthread_cond_t filled;
+    pthread_cond_t empty;
+    pthread_mutex_t mutex;
+
+};
+
 // A C program to demonstrate linked list based
 // implementation of queue
 //From G4G.com
-#include <stdio.h>
-#include <stdlib.h>
+
 
 
 // A linked list (LL) node to store a queue entry
@@ -28,13 +36,13 @@ struct QNode {
 // stores the last node of LL
 struct Queue {
     struct QNode *front, *rear;
-    int size;
+    int size, maxSize;
 };
 
 
 //=====================================Functions
 void producer(int pType, int fd[2]);
-void enQueue(struct Queue* q, int pType, int pCount);
+void enQueue(struct Queue* q, int pType, int pCount, struct locks lock);
 struct QNode* deQueue(struct Queue* q);
 struct Queue* createQueue();
 struct QNode* newNode(int pType, int pCount);

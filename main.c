@@ -13,10 +13,20 @@
 //===============buffers
 struct Queue* p1;
 struct Queue* p2;
+//==============Globals
+pthread_cond_t filled1 = PTHREAD_COND_INITIALIZER;
+pthread_cond_t empty1 = PTHREAD_COND_INITIALIZER;
+pthread_mutex_t mutex1 = PTHREAD_MUTEX_INITIALIZER;
+pthread_cond_t filled2 = PTHREAD_COND_INITIALIZER;
+pthread_cond_t empty2 = PTHREAD_COND_INITIALIZER;
+pthread_mutex_t mutex2 = PTHREAD_MUTEX_INITIALIZER;
+struct locks lock1;
+struct locks lock2;
 //==============
 void put(int value, int buffer[], int fill_ptr, int count, int max);
 int get(int use_ptr, int buffer[], int count, int max);
-void* distributor(void* fd);
+void distributor(int* fd);
+
 /*
  * Useful functions:
  * gettid() (always successful)
@@ -38,10 +48,17 @@ void* distributor(void* fd);
 
 int main(int argc, char* argv[]){
     int fd[2];  //single pipe
-    p1 = createQueue();   //creates queue, assigns front and rear to NULL
-    p2 = createQueue();
+    p1 = createQueue(MAX1);   //creates queue, assigns front and rear to NULL
+    p2 = createQueue(MAX2);
     struct QNode* node = newNode(0,0);
-    pthread_t distId;
+
+    lock1.filled = filled1;
+    lock1.empty = empty1;
+    lock1.mutex = mutex1;
+
+    lock2.filled = filled2;
+    lock2.empty = empty2;
+    lock2.mutex = mutex2;
 
     puts("Begin Program:");
     pipe(fd);   //pipe for communicating between producers/distributor
@@ -61,8 +78,10 @@ int main(int argc, char* argv[]){
     }
 
 //    printf("pid: %d\n", getpid());
+    //parent runs
     if(prod1 > 0 && prod2 > 0){
-        pthread_create(&distId, NULL, distributor, (void*)fd);
+//        pthread_create(&distId, NULL, distributor, (void*)fd);
+        distributor(fd);
     }
 
 
@@ -95,11 +114,13 @@ int main(int argc, char* argv[]){
 //    deQueue(p1);
 //    deQueue(p1);
 //    deQueue(p1);
+
+    //iterates through queues
     while( (node = deQueue(p1)) != NULL){
-        printf("Returned Node: pType: %d, pCount: %d\n", node->pType, node->pCount);
+//        printf("Returned Node: pType: %d, pCount: %d\n", node->pType, node->pCount);
     }
     while( (node = deQueue(p2)) != NULL){
-        printf("Returned Node: pType: %d, pCount: %d\n", node->pType, node->pCount);
+//        printf("Returned Node: pType: %d, pCount: %d\n", node->pType, node->pCount);
     }
 
     if(p1->front != NULL){
@@ -114,28 +135,30 @@ int main(int argc, char* argv[]){
 //==============================================================Distributor Thread
 //thread functions should be of type void* and any arguments
 // passed to it should be type void*
-void* distributor(void* fd){
+void distributor(int* fd){
     int done = 0;
     data new = {0, 0, 0, 0};
 //    printf("%p %p\n", fd, fd+4);
-    if( (close(*(int*)(fd+4))) == -1){  //close write end
+//    printf("%d", newFd[0]);
+    if( (close(fd[1])) == -1){  //close write end
         perror("Close in distributor");
         exit(1);
     }
     //continue to read until both sentinel values are sent
     while(done < 2){
-        read(*(int*)fd,&new, 16);   //read one record each time
+        read(fd[0],&new, 16);   //read one record each time
         if(new.pType == -1){
             done++;
         }else if(new.pType == 1){
-            enQueue(p1, new.pType, new.pCount);
+            printf("Type: %d(1), Count: %d\n", new.pType, new.pCount);
+            enQueue(p1, new.pType, new.pCount, lock1);
         }else if(new.pType == 2){
-            enQueue(p2, new.pType, new.pCount);
+            printf("Type: %d(2), Count: %d\n", new.pType, new.pCount);
+            enQueue(p2, new.pType, new.pCount, lock2);
         }
-//        printf("Type: %d, Count: %d, done: %d \n", new.pType, new.pCount, done);
+
     }
-//    printf("Child sees change Queue: %d\n", p1->front->key);
-    return NULL;
+    return;
 }
 
 
