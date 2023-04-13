@@ -43,7 +43,7 @@ struct Queue {
 //=====================================Functions
 void producer(int pType, int fd[2]);
 void enQueue(struct Queue* q, int pType, int pCount, struct locks lock);
-struct QNode* deQueue(struct Queue* q);
+struct QNode* deQueue(struct Queue* q,struct locks lock);
 struct Queue* createQueue();
 struct QNode* newNode(int pType, int pCount);
 

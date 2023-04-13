@@ -25,9 +25,7 @@ struct Queue* createQueue(int max){
 void enQueue(struct Queue* q, int pType, int pCount, struct locks lock){
 
     //lock the buffer
-    puts("Test1");
-        pthread_mutex_lock(&lock.mutex);
-    pthread_mutex_unlock(&lock.mutex);
+    pthread_mutex_lock(&lock.mutex);
 
     //wait for the buffer to not be full
 //    while(q->size);
@@ -39,12 +37,7 @@ void enQueue(struct Queue* q, int pType, int pCount, struct locks lock){
     // both
     if (q->rear == NULL) {
         q->front = q->rear = temp;
-
-        puts("Test2");
-
-
-
-
+        pthread_mutex_unlock(&lock.mutex);
         return;
     }
 
@@ -52,11 +45,14 @@ void enQueue(struct Queue* q, int pType, int pCount, struct locks lock){
     q->rear->next = temp;
     q->rear = temp;
     q->size++;
+    pthread_mutex_unlock(&lock.mutex);
 }
 
 // Function to remove a key from given queue q
-struct QNode* deQueue(struct Queue* q)
-{
+struct QNode* deQueue(struct Queue* q,struct locks lock){
+
+    //lock the buffer
+    pthread_mutex_lock(&lock.mutex);
 
     // If queue is empty, return NULL.
     if (q->front == NULL)
@@ -70,6 +66,7 @@ struct QNode* deQueue(struct Queue* q)
     if(q->front->next == NULL){
         q->front = NULL;
         q->rear = NULL;
+        pthread_mutex_unlock(&lock.mutex);
         return temp;
     }
     q->front = q->front->next;
@@ -81,5 +78,6 @@ struct QNode* deQueue(struct Queue* q)
 
     q->size--;
     temp->next = NULL;
+    pthread_mutex_unlock(&lock.mutex);
     return(temp);
 }

@@ -116,11 +116,11 @@ int main(int argc, char* argv[]){
 //    deQueue(p1);
 
     //iterates through queues
-    while( (node = deQueue(p1)) != NULL){
-//        printf("Returned Node: pType: %d, pCount: %d\n", node->pType, node->pCount);
+    while( (node = deQueue(p1, lock1)) != NULL){
+        printf("Returned Node: pType: %d, pCount: %d\n", node->pType, node->pCount);
     }
-    while( (node = deQueue(p2)) != NULL){
-//        printf("Returned Node: pType: %d, pCount: %d\n", node->pType, node->pCount);
+    while( (node = deQueue(p2, lock2)) != NULL){
+        printf("Returned Node: pType: %d, pCount: %d\n", node->pType, node->pCount);
     }
 
     if(p1->front != NULL){
@@ -150,10 +150,10 @@ void distributor(int* fd){
         if(new.pType == -1){
             done++;
         }else if(new.pType == 1){
-            printf("Type: %d(1), Count: %d\n", new.pType, new.pCount);
+//            printf("Type: %d(1), Count: %d\n", new.pType, new.pCount);
             enQueue(p1, new.pType, new.pCount, lock1);
         }else if(new.pType == 2){
-            printf("Type: %d(2), Count: %d\n", new.pType, new.pCount);
+//            printf("Type: %d(2), Count: %d\n", new.pType, new.pCount);
             enQueue(p2, new.pType, new.pCount, lock2);
         }
 
