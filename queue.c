@@ -22,33 +22,47 @@ struct Queue* createQueue(int max){
     return q;
 }
 // The function to add a key k to q
-void enQueue(struct Queue* q, int pType, int pCount, struct locks lock){
+void enQueue(struct Queue* q, int pType, int pCount, struct locks* lock){
+//    if(pType == 1){
+//        printf("Lock Address in enQueue: %p\n", &(lock->mutex));
+//        printf("Empty Address in enQueue: %p\n", &(lock->empty));
+//        printf("Filled Address in enQueue: %p\n", &(lock->filled));
+//    }
 
+    printf("Size of Queue: %d\n", q->size);
+
+//    printf("in Enqueue %p\n", lock->empty);
+//    puts("Test enQueue Bro");
     //lock the buffer
-    pthread_mutex_lock(&lock.mutex);
+    pthread_mutex_lock(lock->mutex);
+    //=======================================LOCKED
     //if we're at max capacity
+//    printf("pType: %d, pCount: %d\n", pType, pCount);
     if(q->size >= q->maxSize){
-        puts("waiting in enqueue");
-        pthread_cond_wait(&lock.filled,&lock.mutex);    //wait if it's filled
+//        puts("waiting in enqueue");
+//        printf("Empty Address in Enqueue: %p\n", &(lock->empty));
+//        printf("Mutex Address in Enqueue: %p\n\n", &(lock->mutex));
+//        printf("Filled Address in Enqueue: %p\n", &(lock->filled));
+        pthread_cond_wait(lock->filled,lock->mutex);    //wait if it's filled
     }
-//    printf("Test enQueue: Type: %d, Count: %d\n", pType, pCount);
 
 
     // Create a new LL node
     struct QNode* temp = newNode(pType, pCount);
 
     // If queue is empty, then new node is front and rear
-    // both
     if (q->rear == NULL) {
-        printf("Rear is null at %d\n", pCount);
+//        printf("Rear is null at %d\n", pCount);
         q->front = q->rear = temp;
-
+        q->size++;
         //signal the consumer that the queue is no longer empty
-        if(pthread_cond_signal(&lock.empty) != 0){
-            perror("condition signal enqueue");
+        if(pthread_cond_signal(lock->empty) != 0){
+            perror("cond signal in enqueue");
             exit(1);
         }
-        pthread_mutex_unlock(&lock.mutex);
+//        puts("Signaled empty");
+        pthread_mutex_unlock(lock->mutex);
+        //==================================UNLOCKED
         return;
     }
 
@@ -56,40 +70,54 @@ void enQueue(struct Queue* q, int pType, int pCount, struct locks lock){
     q->rear->next = temp;
     q->rear = temp;
     q->size++;
-    pthread_cond_signal(&lock.empty); //signal the consumer that the queue is no longer empty
-    pthread_mutex_unlock(&lock.mutex);
+//    printf("Size after Enqueue Type %d: %d\n",q->rear->pType, q->size);
+    //signal the consumer that the queue is no longer empty
+
+    if(pthread_cond_signal(lock->empty) != 0){
+        perror("cond signal in enqueue");
+        exit(1);
+    }
+//    puts("Signaled empty");
+    //==================================UNLOCKED
+    pthread_mutex_unlock(lock->mutex);
 }
 
 // Function to remove a key from given queue q
-struct QNode* deQueue(struct Queue* q,struct locks lock){
+//======================================locked already in consumer
+struct QNode* deQueue(struct Queue* q){
 
-    //lock the buffer
-//    pthread_mutex_lock(&lock.mutex);
 
     // If queue is empty, return NULL.
-    if (q->front == NULL)
+    if (q->front == NULL){
+//        puts("Queue is empty stupid...");
         return NULL;
+    }
 
-    // Store previous front and move frohttps://github.com/amcginn92/ServiceInClassActivity/tree/master/app/src/main/java/edu/temple/myapplicationthrent one node ahead
+
     struct QNode* temp = q->front;
 
     //if it's not pointing to anything it's the last element
     //clear the queue and return the node
     if(q->front->next == NULL){
+//        puts("You're taking the last one! THIEF!");
+//        printf("Head: %d %d\n", temp->pType, temp->pCount);
         q->front = NULL;
         q->rear = NULL;
-//        pthread_mutex_unlock(&lock.mutex);
+        q->size--;
         return temp;
     }
-    q->front = q->front->next;
+        q->front = q->front->next;
 
     // If front becomes NULL, then change rear also as NULL
     if (q->front == NULL){
         q->rear = NULL;
     }
 
+    //decrement size of queue
+//    printf("Qsize deQueue: Before %d", q->size);
     q->size--;
+//    printf("Qsize deQueue: After %d", q->size);
+    //Returned null should no longer be pointing to anything
     temp->next = NULL;
-//    pthread_mutex_unlock(&lock.mutex);
     return(temp);
 }

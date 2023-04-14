@@ -5,7 +5,9 @@
 #include <errno.h>
 #include <sys/wait.h>
 #include <sys/types.h>
+#include <sys/stat.h>
 #include <pthread.h>
+#include <fcntl.h>
 #include "helpers.h"
 //=============================Constants
 #define MAX1 60
@@ -23,6 +25,8 @@ pthread_cond_t empty2 = PTHREAD_COND_INITIALIZER;
 pthread_mutex_t mutex2 = PTHREAD_MUTEX_INITIALIZER;
 struct locks lock1;
 struct locks lock2;
+struct consumerBundle* cb1;
+struct consumerBundle* cb2;
 //==============
 void put(int value, int buffer[], int fill_ptr, int count, int max);
 int get(int use_ptr, int buffer[], int count, int max);
@@ -52,19 +56,19 @@ int main(int argc, char* argv[]){
     q1 = createQueue(MAX1);   //creates queue, assigns front and rear to NULL
     q2 = createQueue(MAX2);
     pthread_t c1, c3;
-//    c2, c3, c4;
+    pthread_t c2, c4;
     //=====================lock structs set
-    lock1.filled = filled1;
-    lock1.empty = empty1;
-    lock1.mutex = mutex1;
-    lock2.filled = filled2;
-    lock2.empty = empty2;
-    lock2.mutex = mutex2;
+    lock1.filled = &filled1;
+    lock1.empty = &empty1;
+    lock1.mutex = &mutex1;
+    lock2.filled = &filled2;
+    lock2.empty = &empty2;
+    lock2.mutex = &mutex2;
 
 
 
 
-    puts("Begin Program:");
+//    puts("Begin Program:");
     pipe(fd);   //pipe for communicating between producers/distributor
     int prod1 = 0, prod2 = 0;
 
@@ -80,32 +84,59 @@ int main(int argc, char* argv[]){
     }else if(prod2 == 0){
         producer(2, fd);    //type 1
     }
-    struct consumerBundle* cb1 = (struct consumerBundle*)malloc(sizeof(struct consumerBundle));
+    cb1 = (struct consumerBundle*)malloc(sizeof(struct consumerBundle));
     cb1->q = q1;
     cb1->lock = &lock1;
+    cb1->flag = 0;  //we haven't received kill signal
 
 
-    struct consumerBundle* cb2 = (struct consumerBundle*)malloc(sizeof(struct consumerBundle));
+    cb2 = (struct consumerBundle*)malloc(sizeof(struct consumerBundle));
     cb2->q = q2;
     cb2->lock = &lock2;
+    cb2->flag = 0;  //we haven't received kill signal
 
 //    puts("test main 1:");
-    printf("Max Size in main: %d\n", cb1->q->maxSize);
+//    printf("Max Size in main: %d\n", cb1->q->maxSize);
+//    pthread_t distId;
+//    pthread_create(&distId, NULL, distributor, (void*)fd);
+
+        //UNDO AFTER TEST***!!!!!!!!!!!!!
+//    int out = open("out.txt", O_WRONLY | O_CREAT, S_IRWXU | S_IRWXG | S_IRWXO );
+//    printf("%d\n", STDOUT_FILENO);
+//    int save = dup(STDOUT_FILENO);
+//    if( (dup2(out, STDOUT_FILENO)) == -1){
+//        perror("dup2 in main");
+//        exit(1);
+//    }
 
     //create consumer threads
     pthread_create(&c1, NULL, consumer, ((void*)cb1));
-//    pthread_create(&c2, NULL, consumer, ((void*)&cb1));
-//    pthread_create(&c3, NULL, consumer, ((void*)&cb2));
-//    pthread_create(&c4, NULL, consumer, ((void*)&cb2));
+    pthread_create(&c2, NULL, consumer, ((void*)cb1));
+    pthread_create(&c3, NULL, consumer, ((void*)cb2));
+    pthread_create(&c4, NULL, consumer, ((void*)cb2));
 
+    distributor(fd);
+//    if(pthread_cond_signal(cb1->lock->empty) != 0){
+//        perror("cond signal in enqueue");
+//        exit(1);
+//    }
+//    if(pthread_cond_signal(cb2->lock->empty) != 0){
+//        perror("cond signal in enqueue");
+//        exit(1);
+//    }
 
-    puts("test main 2:");
+    printf("thread 1: %d\n", pthread_join(c1, NULL));
+    printf("thread 2: %d\n", pthread_join(c2, NULL));
+    printf("thread 3: %d\n", pthread_join(c3, NULL));
+    printf("thread 4: %d\n", pthread_join(c4, NULL));
+
+//    puts("test main 2:");
 //    printf("pid: %d\n", getpid());
     //parent runs the distributor
-    if(prod1 > 0 && prod2 > 0){
-        distributor(fd);
-    }
-    puts("test main 3:");
+//    if(prod1 > 0 && prod2 > 0){
+//        distributor(fd);
+//    }
+//    puts("test main 3:");
 
 //    printf("%d\n", cb1->q->front->pType); //test
 //    puts("Parent changes q1 after thread execution");
@@ -151,6 +182,9 @@ int main(int argc, char* argv[]){
 //        printf("Queue 2 pType: %d, pCount: %d, size: %d\n", q2->front->pType, q2->front->pCount, q2->size);
 //    }
 
+
+//    dup2(save, STDOUT_FILENO);
+//    printf("%d\n", save);
     return 0;
 }
 //==============================================================Distributor Thread
@@ -161,6 +195,7 @@ void distributor(int* fd){
     data new = {0, 0, 0, 0};
 //    printf("%p %p\n", fd, fd+4);
 //    printf("%d", newFd[0]);
+//    int* fd = (int*)newFd;
     if( (close(fd[1])) == -1){  //close write end
         perror("Close in distributor");
         exit(1);
@@ -168,19 +203,27 @@ void distributor(int* fd){
     //continue to read until both sentinel values are sent
     while(done < 2){
         read(fd[0],&new, 16);   //read one record each time
-        if(new.pType == -1){
+        if(new.pCount == -1){
             done++;
-        }else if(new.pType == 1){
-//            printf("Type: %d(1), Count: %d\n", new.pType, new.pCount);
-            enQueue(q1, new.pType, new.pCount, lock1);
+        }
+        if(new.pType == 1){
+            enQueue(q1, new.pType, new.pCount, &lock1);
+//            printf("Queue 1: %d %d\n", q1->size, cb1->q->size); //sizes match!!!
+            if(q1->rear != NULL && q2->rear != NULL){
+//                printf("Distributor Queued:Type %d, Count: %d\n", q1->rear->pType, q1->rear->pCount);
+            }
         }else if(new.pType == 2){
-//            printf("Type: %d(2), Count: %d\n", new.pType, new.pCount);
-            enQueue(q2, new.pType, new.pCount, lock2);
+            enQueue(q2, new.pType, new.pCount, &lock2);
+//            printf("Queue 2: %d %d\n", q1->size, cb2->q->size);
+            if(q1->rear != NULL && q2->rear != NULL){
+//                printf("Distributor Queued:Type %d, Count: %d\n", q2->rear->pType, q2->rear->pCount);
+            }
         }
-        if(q1->rear != NULL && q2->rear != NULL){
-//        printf("Distributor Queued:Type %d, Count: %d\n", q1->rear->pType, q1->rear->pCount);
-//        printf("Distributor Queued:Type %d, Count: %d\n", q2->rear->pType, q2->rear->pCount);
-        }
+
+//        while(pthread_cond_signal(lock1.empty) !=0);
+//        while(pthread_cond_signal(lock2.empty) !=0);
+
+
     }
     return;
 }

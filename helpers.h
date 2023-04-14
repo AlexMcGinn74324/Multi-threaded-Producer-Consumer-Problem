@@ -11,14 +11,16 @@ typedef struct{
 }data;
 
 struct locks{
-    pthread_cond_t filled;
-    pthread_cond_t empty;
-    pthread_mutex_t mutex;
+    pthread_cond_t* filled;
+    pthread_cond_t* empty;
+    pthread_mutex_t* mutex;
 };
 
 struct consumerBundle{
     struct locks *lock;
     struct Queue *q;
+    int cNum;
+    int flag;
 };
 
 
@@ -42,8 +44,8 @@ struct Queue {
 
 //=====================================Functions
 void producer(int pType, int fd[2]);
-void enQueue(struct Queue* q, int pType, int pCount, struct locks lock);
-struct QNode* deQueue(struct Queue* q,struct locks lock);
+void enQueue(struct Queue* q, int pType, int pCount, struct locks* lock);
+struct QNode* deQueue(struct Queue* q);
 struct Queue* createQueue();
 struct QNode* newNode(int pType, int pCount);
 void* consumer(void* cb);
