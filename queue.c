@@ -26,9 +26,13 @@ void enQueue(struct Queue* q, int pType, int pCount, struct locks lock){
 
     //lock the buffer
     pthread_mutex_lock(&lock.mutex);
+    //if we're at max capacity
+    if(q->size >= q->maxSize){
+        puts("waiting in enqueue");
+        pthread_cond_wait(&lock.filled,&lock.mutex);    //wait if it's filled
+    }
+//    printf("Test enQueue: Type: %d, Count: %d\n", pType, pCount);
 
-    //wait for the buffer to not be full
-//    while(q->size);
 
     // Create a new LL node
     struct QNode* temp = newNode(pType, pCount);
@@ -36,7 +40,14 @@ void enQueue(struct Queue* q, int pType, int pCount, struct locks lock){
     // If queue is empty, then new node is front and rear
     // both
     if (q->rear == NULL) {
+        printf("Rear is null at %d\n", pCount);
         q->front = q->rear = temp;
+
+        //signal the consumer that the queue is no longer empty
+        if(pthread_cond_signal(&lock.empty) != 0){
+            perror("condition signal enqueue");
+            exit(1);
+        }
         pthread_mutex_unlock(&lock.mutex);
         return;
     }
@@ -45,6 +56,7 @@ void enQueue(struct Queue* q, int pType, int pCount, struct locks lock){
     q->rear->next = temp;
     q->rear = temp;
     q->size++;
+    pthread_cond_signal(&lock.empty); //signal the consumer that the queue is no longer empty
     pthread_mutex_unlock(&lock.mutex);
 }
 
@@ -52,13 +64,13 @@ void enQueue(struct Queue* q, int pType, int pCount, struct locks lock){
 struct QNode* deQueue(struct Queue* q,struct locks lock){
 
     //lock the buffer
-    pthread_mutex_lock(&lock.mutex);
+//    pthread_mutex_lock(&lock.mutex);
 
     // If queue is empty, return NULL.
     if (q->front == NULL)
         return NULL;
 
-    // Store previous front and move front one node ahead
+    // Store previous front and move frohttps://github.com/amcginn92/ServiceInClassActivity/tree/master/app/src/main/java/edu/temple/myapplicationthrent one node ahead
     struct QNode* temp = q->front;
 
     //if it's not pointing to anything it's the last element
@@ -66,7 +78,7 @@ struct QNode* deQueue(struct Queue* q,struct locks lock){
     if(q->front->next == NULL){
         q->front = NULL;
         q->rear = NULL;
-        pthread_mutex_unlock(&lock.mutex);
+//        pthread_mutex_unlock(&lock.mutex);
         return temp;
     }
     q->front = q->front->next;
@@ -78,6 +90,6 @@ struct QNode* deQueue(struct Queue* q,struct locks lock){
 
     q->size--;
     temp->next = NULL;
-    pthread_mutex_unlock(&lock.mutex);
+//    pthread_mutex_unlock(&lock.mutex);
     return(temp);
 }

@@ -45,3 +45,36 @@ void producer(int pType, int fd[2]){
 
     exit(1);
 }
+void* consumer(void* cbTemp){
+    struct QNode* node = newNode(0,0);
+    struct consumerBundle* cb = (struct consumerBundle*)cbTemp;     ///is this stupid?
+
+    if(cb->q->size == 0){
+        printf("Queue is empty\n");
+    }
+    printf("Max size: %d\n", cb->q->maxSize);
+//    printf("Size: %d\n", cb->q->size);
+    puts("INITIAL TEST IN CONSUMER");
+    if(pthread_mutex_lock(&(cb->lock->mutex)) != 0){
+        perror("consumer lock 1");
+        exit(1);
+    }
+
+    puts("consumer run 1");
+
+    if(cb->q->size <= 0){
+        puts("Test Consumer");
+        pthread_cond_wait(&(cb->lock->empty),&(cb->lock->mutex));   //wait if it's empty
+    }
+    puts("Consumer run 2");
+    if(cb != NULL){
+        printf("%d\n", cb->q->front->pType);
+    }
+    node = deQueue(cb->q,*(cb->lock));
+    printf("Test Dequeue: %d\n",node->pType);
+//    cb->q->size--;  //decrement the queue
+    pthread_cond_signal(&(cb->lock->filled));
+    pthread_mutex_unlock(&(cb->lock->mutex));
+
+    return NULL;
+}
