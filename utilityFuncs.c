@@ -32,6 +32,7 @@ void producer(int pType, int fd[2]){
 
         if(i == 150){   //the 151st iteration
             cur.pCount = -1;
+//            printf("Type: %d, pCount: %d\n", pType, cur.pCount);
         }
         if( (write(fd[1], &cur, size)) == -1){
             perror("write in utility");
@@ -58,28 +59,28 @@ void* consumer(void* cbTemp){
             exit(1);
         }
         if(cb->flag == 1){
-            puts("Flag received 1");
-            exit(0);
+            printf("Flag received 1 by %zu\n", pthread_self());
+            return NULL;
         }
 //        printf("Thread %zu locked:\n", pthread_self());
 
-        unsigned int timer = 10000;
-        if( (usleep(timer)) == -1) { //sleep
-            perror("usleep in producer function");
-            exit(1);
-        }
-//        printf("Timer Finished: %zu\n", pthread_self());
-//        printf("size: %d\n", cb->q->size);
-        while(cb->q->size == 0) {
+//        unsigned int timer = 10000;       //Test code
+//        if( (usleep(timer)) == -1) {
+//            perror("usleep in producer function");
+//            exit(1);
+//        }
+
+        while(cb->q->size == 0 && cb->flag != 1) {
+//            printf("%zu waiting\n", pthread_self());
             if ((pthread_cond_wait((cb->lock->empty), (cb->lock->mutex))) != 0) {
                 perror("Cond wait in consumer 1");
                 exit(1);
             }
             if(cb->flag == 1){
-                puts("Flag received 2");
-                exit(0);
+//                printf("Flag received 2 by %zu\n", pthread_self());
+                return NULL;
             }
-//            printf("Thread %zu awoken:\n", pthread_self());
+
 //            printf("Thread: %zu, size: %d\n", pthread_self(), cb->q->size);
         }
 
@@ -89,10 +90,13 @@ void* consumer(void* cbTemp){
 //        printf("Thread %zu entering dequeue:\n", pthread_self());
         if(cb->flag != 1)
             node = deQueue(cb->q);
+//        printf("Thread %zu awoken: pCount %d\n", pthread_self(), node->pCount);
 
         if(node->pCount != -1){
+                pthread_mutex_lock(cb->fMutex);
                 printf("%34s %3s %3s %16s %13s\n", "Type", "P.Count", "Size", "Consumption Count", "C. Thread ID");
                 printf("Test Node Returned in Consumer: %1d %6d %3d %14d %25zu\n", node->pType, node->pCount, cb->q->size, cb->cNum,pthread_self());
+                pthread_mutex_unlock(cb->fMutex);
         }else{  //we have received kill signal for this product
             cb->flag = 1;
 //            printf("cb->flag: %d, TID: %zu\n", cb->flag, pthread_self());
@@ -113,7 +117,7 @@ void* consumer(void* cbTemp){
         //=========================================UNLOCKED, loop again
     }
     //if the first thread for this buffer has terminated successfully, we signal the other one to stop waiting
-    printf("%zu returned successfully with flag %d\n", pthread_self(), cb->flag);
+//    printf("%zu returned successfully with flag %d\n", pthread_self(), cb->flag);
     if( (pthread_cond_signal(cb->lock->empty)) != 0){
         perror("Final signal in consumer");
         exit(1);

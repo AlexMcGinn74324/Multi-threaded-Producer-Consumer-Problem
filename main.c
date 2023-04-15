@@ -27,6 +27,7 @@ struct locks lock1;
 struct locks lock2;
 struct consumerBundle* cb1;
 struct consumerBundle* cb2;
+pthread_mutex_t fMutex = PTHREAD_MUTEX_INITIALIZER;
 //==============
 void put(int value, int buffer[], int fill_ptr, int count, int max);
 int get(int use_ptr, int buffer[], int count, int max);
@@ -65,10 +66,6 @@ int main(int argc, char* argv[]){
     lock2.empty = &empty2;
     lock2.mutex = &mutex2;
 
-
-
-
-//    puts("Begin Program:");
     pipe(fd);   //pipe for communicating between producers/distributor
     int prod1 = 0, prod2 = 0;
 
@@ -90,24 +87,24 @@ int main(int argc, char* argv[]){
     cb1->lock = &lock1;
     cb1->flag = 0;  //we haven't received kill signal
     cb1->cNum = 1;
+    cb1->fMutex = &fMutex;  //lock for file access
 
     cb2 = (struct consumerBundle*)malloc(sizeof(struct consumerBundle));
     cb2->q = q2;
     cb2->lock = &lock2;
     cb2->flag = 0;  //we haven't received kill signal
     cb2->cNum = 1;
+    cb2->fMutex = &fMutex;
 
-        //UNDO AFTER TEST***!!!!!!!!!!!!! TO OUTPUT TO FILE
-//    int out = open("out.txt", O_WRONLY | O_CREAT, S_IRWXU | S_IRWXG | S_IRWXO );
-//    printf("%d\n", STDOUT_FILENO);
+    int out = open("out.txt", O_WRONLY | O_CREAT, S_IRWXU | S_IRWXG | S_IRWXO );
 //    int save = dup(STDOUT_FILENO);
-//    if( (dup2(out, STDOUT_FILENO)) == -1){
-//        perror("dup2 in main");
-//        exit(1);
-//    }
+    if( (dup2(out, STDOUT_FILENO)) == -1){
+        perror("dup2 in main");
+        exit(1);
+    }
 
 //    if((c1 == c3) && (c2 == c4));
-    if(c3 == c4);
+//    if(c3 == c4);
     //create consumer threads
     pthread_create(&c1, NULL, consumer, ((void*)cb1));
     pthread_create(&c2, NULL, consumer, ((void*)cb1));
@@ -116,10 +113,19 @@ int main(int argc, char* argv[]){
 
     distributor(fd);
     puts("Distributor finished");
-    printf("thread 1: %d\n", pthread_join(c1, NULL));
-    printf("thread 2: %d\n", pthread_join(c2, NULL));
-    printf("thread 3: %d\n", pthread_join(c3, NULL));
-    printf("thread 4: %d\n", pthread_join(c4, NULL));
+    if( (pthread_join(c1, NULL) == 0)){
+        printf("Thread 1 join successful\n");
+    }
+    if( (pthread_join(c2, NULL) == 0)){
+        printf("Thread 2 join successful\n");
+    }
+    if( (pthread_join(c3, NULL) == 0)){
+        printf("Thread 3 join successful\n");
+    }
+    if( (pthread_join(c4, NULL) == 0)){
+        printf("Thread 4 join successful\n");
+    }
+
 
 
     //parent reaps child processes
@@ -132,6 +138,8 @@ int main(int argc, char* argv[]){
         exit(1);
     }
 
+//    printf("%zu\n", pthread_self());
+
 //    dup2(save, STDOUT_FILENO);
 //    printf("%d\n", save);
     return 0;
@@ -140,7 +148,7 @@ int main(int argc, char* argv[]){
 //thread functions should be of type void* and any arguments
 // passed to it should be type void*
 void distributor(int* fd){
-    printf("Parent TID: %zu\n", pthread_self());
+//    printf("Parent TID: %zu\n", pthread_self());
     int done = 0;
     data new = {0, 0, 0, 0};
     if( (close(fd[1])) == -1){  //close write end
@@ -149,7 +157,6 @@ void distributor(int* fd){
     }
     //continue to read until both sentinel values are sent
     while(done < 2){
-
         //read one record each time
         if( (read(fd[0],&new, 16)) == -1){
             perror("read in distributor");
@@ -159,20 +166,24 @@ void distributor(int* fd){
         if(new.pCount == -1){   //if a thread is finished let the producer know
             done++;
         }
+
 //        printf("New Count: %d, Type: %d\n", new.pCount, new.pType);
         if(new.pType == 1){
+//            printf("Type: %d, Count: %d\n", new.pType, new.pCount);
             enQueue(q1, new.pType, new.pCount, &lock1);
-//            printf("Queue 1: %d %d\n", q1->size, cb1->q->size);
+
 //            if(q1->rear != NULL && q2->rear != NULL){
 //                printf("Distributor Queued:Type %d, Count: %d\n", q1->rear->pType, q1->rear->pCount);
 //            }
         }else if(new.pType == 2){
+//            printf("Type: %d, Count: %d\n", new.pType, new.pCount);
             enQueue(q2, new.pType, new.pCount, &lock2);
-//            printf("Queue 2 before: %d %d\n", q1->size, cb2->q->size);  //NOT LOCKED HERE
-//            printf("Queue 2 after: %d %d\n", q1->size, cb2->q->size);
 //            if(q1->rear != NULL && q2->rear != NULL){
 //                printf("Distributor Queued:Type %d, Count: %d\n", q2->rear->pType, q2->rear->pCount);
 //            }
+        }
+        if(done == 2){
+            break;
         }
     }
     return;

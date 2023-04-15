@@ -21,6 +21,7 @@ struct consumerBundle{
     struct Queue *q;
     int cNum;
     int flag;
+    pthread_mutex_t* fMutex;
 };
 
 
