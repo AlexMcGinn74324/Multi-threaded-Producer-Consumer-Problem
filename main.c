@@ -82,25 +82,22 @@ int main(int argc, char* argv[]){
         perror("fork #1 in main");
         exit(1);
     }else if(prod2 == 0){
-        producer(2, fd);    //type 1
+        producer(2, fd);    //PRODUCERS EXIT IN FUNCTION
     }
+
     cb1 = (struct consumerBundle*)malloc(sizeof(struct consumerBundle));
     cb1->q = q1;
     cb1->lock = &lock1;
     cb1->flag = 0;  //we haven't received kill signal
-
+    cb1->cNum = 1;
 
     cb2 = (struct consumerBundle*)malloc(sizeof(struct consumerBundle));
     cb2->q = q2;
     cb2->lock = &lock2;
     cb2->flag = 0;  //we haven't received kill signal
+    cb2->cNum = 1;
 
-//    puts("test main 1:");
-//    printf("Max Size in main: %d\n", cb1->q->maxSize);
-//    pthread_t distId;
-//    pthread_create(&distId, NULL, distributor, (void*)fd);
-
-        //UNDO AFTER TEST***!!!!!!!!!!!!!
+        //UNDO AFTER TEST***!!!!!!!!!!!!! TO OUTPUT TO FILE
 //    int out = open("out.txt", O_WRONLY | O_CREAT, S_IRWXU | S_IRWXG | S_IRWXO );
 //    printf("%d\n", STDOUT_FILENO);
 //    int save = dup(STDOUT_FILENO);
@@ -109,6 +106,8 @@ int main(int argc, char* argv[]){
 //        exit(1);
 //    }
 
+//    if((c1 == c3) && (c2 == c4));
+    if(c3 == c4);
     //create consumer threads
     pthread_create(&c1, NULL, consumer, ((void*)cb1));
     pthread_create(&c2, NULL, consumer, ((void*)cb1));
@@ -116,48 +115,14 @@ int main(int argc, char* argv[]){
     pthread_create(&c4, NULL, consumer, ((void*)cb2));
 
     distributor(fd);
-//    if(pthread_cond_signal(cb1->lock->empty) != 0){
-//        perror("cond signal in enqueue");
-//        exit(1);
-//    }
-//    if(pthread_cond_signal(cb2->lock->empty) != 0){
-//        perror("cond signal in enqueue");
-//        exit(1);
-//    }
-
+    puts("Distributor finished");
     printf("thread 1: %d\n", pthread_join(c1, NULL));
     printf("thread 2: %d\n", pthread_join(c2, NULL));
     printf("thread 3: %d\n", pthread_join(c3, NULL));
     printf("thread 4: %d\n", pthread_join(c4, NULL));
 
-//    puts("test main 2:");
-//    printf("pid: %d\n", getpid());
-    //parent runs the distributor
-//    if(prod1 > 0 && prod2 > 0){
-//        distributor(fd);
-//    }
-//    puts("test main 3:");
 
-//    printf("%d\n", cb1->q->front->pType); //test
-//    puts("Parent changes q1 after thread execution");
-//    enQueue(q1,2);
-
-    if((c1 == c3));
-//    if((c2 == c4));
-
-
-    //main will be the consumer process
-    //we will fork and run the producer processes from here
-
-
-
-    //distributor thread reads from pipe
-    //dist thread then writes to buffer 1/2 depending on pType
-    //buffers should be different sizes**
-
-
-
-//    parent waits for child processes
+    //parent reaps child processes
     if( (waitpid(prod1, NULL, 0)) == -1){
         perror("waitpid prod1 in main");
         exit(1);
@@ -166,22 +131,6 @@ int main(int argc, char* argv[]){
         perror("waitpid prod2 in main");
         exit(1);
     }
-    //iterates through queues
-//    struct QNode* node = newNode(0,0);
-//    while( (node = deQueue(q1, lock1)) != NULL){
-//        printf("Returned Node: pType: %d, pCount: %d\n", node->pType, node->pCount);
-//    }
-//    while( (node = deQueue(q2, lock2)) != NULL){
-//        printf("Returned Node: pType: %d, pCount: %d\n", node->pType, node->pCount);
-//    }
-//
-//    if(q1->front != NULL){
-//        printf("Queue 1 pType: %d, pCount: %d, size: %d\n", q1->front->pType, q1->front->pCount, q1->size);
-//    }
-//    if(q2->front != NULL){
-//        printf("Queue 2 pType: %d, pCount: %d, size: %d\n", q2->front->pType, q2->front->pCount, q2->size);
-//    }
-
 
 //    dup2(save, STDOUT_FILENO);
 //    printf("%d\n", save);
@@ -191,39 +140,40 @@ int main(int argc, char* argv[]){
 //thread functions should be of type void* and any arguments
 // passed to it should be type void*
 void distributor(int* fd){
+    printf("Parent TID: %zu\n", pthread_self());
     int done = 0;
     data new = {0, 0, 0, 0};
-//    printf("%p %p\n", fd, fd+4);
-//    printf("%d", newFd[0]);
-//    int* fd = (int*)newFd;
     if( (close(fd[1])) == -1){  //close write end
         perror("Close in distributor");
         exit(1);
     }
     //continue to read until both sentinel values are sent
     while(done < 2){
-        read(fd[0],&new, 16);   //read one record each time
-        if(new.pCount == -1){
+
+        //read one record each time
+        if( (read(fd[0],&new, 16)) == -1){
+            perror("read in distributor");
+            exit(1);
+        }
+
+        if(new.pCount == -1){   //if a thread is finished let the producer know
             done++;
         }
+//        printf("New Count: %d, Type: %d\n", new.pCount, new.pType);
         if(new.pType == 1){
             enQueue(q1, new.pType, new.pCount, &lock1);
-//            printf("Queue 1: %d %d\n", q1->size, cb1->q->size); //sizes match!!!
-            if(q1->rear != NULL && q2->rear != NULL){
+//            printf("Queue 1: %d %d\n", q1->size, cb1->q->size);
+//            if(q1->rear != NULL && q2->rear != NULL){
 //                printf("Distributor Queued:Type %d, Count: %d\n", q1->rear->pType, q1->rear->pCount);
-            }
+//            }
         }else if(new.pType == 2){
             enQueue(q2, new.pType, new.pCount, &lock2);
-//            printf("Queue 2: %d %d\n", q1->size, cb2->q->size);
-            if(q1->rear != NULL && q2->rear != NULL){
+//            printf("Queue 2 before: %d %d\n", q1->size, cb2->q->size);  //NOT LOCKED HERE
+//            printf("Queue 2 after: %d %d\n", q1->size, cb2->q->size);
+//            if(q1->rear != NULL && q2->rear != NULL){
 //                printf("Distributor Queued:Type %d, Count: %d\n", q2->rear->pType, q2->rear->pCount);
-            }
+//            }
         }
-
-//        while(pthread_cond_signal(lock1.empty) !=0);
-//        while(pthread_cond_signal(lock2.empty) !=0);
-
-
     }
     return;
 }
