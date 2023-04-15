@@ -11,8 +11,8 @@
  * Each iteration they send 1 product into the pipe and briefly delay (.01-.2s). The data to be sent
  * over is held inside a 'data' struct, which holds the product type, consumption thread id, product
  * count, and consumption count. */
-//input: Product type #
-//output: n/a
+//input: Product type #, file descriptors
+//output: Writes the current product type/count to pipe shared with distributor
 //====================================================================================================
 void producer(int pType, int fd[2]){
     int pCount = 0; //initialize this producer's count to 0
@@ -32,7 +32,6 @@ void producer(int pType, int fd[2]){
 
         if(i == 150){   //the 151st iteration
             cur.pCount = -1;
-//            printf("Type: %d, pCount: %d\n", pType, cur.pCount);
         }
         if( (write(fd[1], &cur, size)) == -1){
             perror("write in utility");
@@ -47,6 +46,17 @@ void producer(int pType, int fd[2]){
 }
 
 //==========================================================CONSUMER===================================================
+/* Input: ConsumerBundle struct (void *)
+ * Output: Prints retrieved node from buffer into file (using redirection from main)
+
+ * The Consumer thread process uses locks and condition variables to
+ * provide asynchronous operations on the shared buffer and file. We
+ * have access to these values through the consumer bundle struct. This
+ * allows us to sleep while the buffer is empty and wake the distributor
+ * once we have entered values into it. There was a problem with notifying
+ * the second thread that the first had finished, which we solved using a
+ * flag inside of the consumer bundle struct.
+ */
 void* consumer(void* cbTemp){
     struct consumerBundle *cb = (struct consumerBundle *) cbTemp;   //transferring address isn't a race condition
     struct QNode *node = newNode(0, 0);
@@ -62,35 +72,22 @@ void* consumer(void* cbTemp){
             printf("Flag received 1 by %zu\n", pthread_self());
             return NULL;
         }
-//        printf("Thread %zu locked:\n", pthread_self());
-
-//        unsigned int timer = 10000;       //Test code
-//        if( (usleep(timer)) == -1) {
-//            perror("usleep in producer function");
-//            exit(1);
-//        }
 
         while(cb->q->size == 0 && cb->flag != 1) {
-//            printf("%zu waiting\n", pthread_self());
             if ((pthread_cond_wait((cb->lock->empty), (cb->lock->mutex))) != 0) {
                 perror("Cond wait in consumer 1");
                 exit(1);
             }
             if(cb->flag == 1){
-//                printf("Flag received 2 by %zu\n", pthread_self());
                 return NULL;
             }
-
-//            printf("Thread: %zu, size: %d\n", pthread_self(), cb->q->size);
         }
 
 
 
         //queue size decremented in deQueue
-//        printf("Thread %zu entering dequeue:\n", pthread_self());
         if(cb->flag != 1)
             node = deQueue(cb->q);
-//        printf("Thread %zu awoken: pCount %d\n", pthread_self(), node->pCount);
 
         if(node->pCount != -1){
                 pthread_mutex_lock(cb->fMutex);
@@ -99,16 +96,11 @@ void* consumer(void* cbTemp){
                 pthread_mutex_unlock(cb->fMutex);
         }else{  //we have received kill signal for this product
             cb->flag = 1;
-//            printf("cb->flag: %d, TID: %zu\n", cb->flag, pthread_self());
         }
 
         if(cb->flag != 1)
             cb->cNum++;
 
-
-
-//        printf("Thread %zu finished dequeue, unlocking:\n", pthread_self());
-//    printf("Lock filled flag signaled: %p\n", &(cb->lock->filled));
         if ((pthread_cond_signal(cb->lock->filled)) != 0) {
             perror("cond signal in consumer");
             exit(1);
@@ -116,12 +108,10 @@ void* consumer(void* cbTemp){
         pthread_mutex_unlock((cb->lock->mutex));
         //=========================================UNLOCKED, loop again
     }
-    //if the first thread for this buffer has terminated successfully, we signal the other one to stop waiting
-//    printf("%zu returned successfully with flag %d\n", pthread_self(), cb->flag);
+//if the first thread for this buffer has terminated successfully, we signal the other one to stop waiting
     if( (pthread_cond_signal(cb->lock->empty)) != 0){
         perror("Final signal in consumer");
         exit(1);
     }
-//    printf("%d\n", node->pCount);
     return NULL;
 }

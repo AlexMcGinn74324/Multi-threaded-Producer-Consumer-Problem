@@ -33,25 +33,15 @@ void put(int value, int buffer[], int fill_ptr, int count, int max);
 int get(int use_ptr, int buffer[], int count, int max);
 void distributor(int* fd);
 
-/*
- * Useful functions:
- * gettid() (always successful)
- * Condition Variables and Mutex locks(not semaphores)
- * OSTEP Chapter 30 (locks, cond vars, circular queue)
- * Chapter 26 (Threads)
- *
- * Left Off: Created both buffers and added all produced
- * of product1/2, retrieved from shared pipe. Queue has
- * ways to add and remove from queue (although to retrieve
- * values you will need to access each element to save and
- * then dequeue).
- * Should each queue have a shared consumption value as
- * well as the stored value for each node for writing to
- * file?
- *
- * Need to free nodes after dequeue (used to be done in dequeue function)
- */
-
+/* Before getting into main we've initialized all of our locks and condition variables
+ * that will be used to provide mutual exclusion to our buffers (provided via a queue
+ * that holds our product type, product count, size, max size, thread id, and consumption
+ * count. We fork our producers that create and write these product type/count to a mutual
+ * pipe that it shares with the distributor function. We then redirect output to a file,
+ * create our threads for each consumption process, which asynchronously takes items from
+ * the distributor and writes them to file. The main thread then runs the distributor
+ * thread, which again takes items from the pipe and adds them to our buffer (asynchr
+ * -onously), before returning to join/reap child threads/processes.  */
 int main(int argc, char* argv[]){
     int fd[2];  //single pipe
     q1 = createQueue(MAX1);   //creates queue, assigns front and rear to NULL
@@ -97,14 +87,11 @@ int main(int argc, char* argv[]){
     cb2->fMutex = &fMutex;
 
     int out = open("out.txt", O_WRONLY | O_CREAT, S_IRWXU | S_IRWXG | S_IRWXO );
-//    int save = dup(STDOUT_FILENO);
     if( (dup2(out, STDOUT_FILENO)) == -1){
         perror("dup2 in main");
         exit(1);
     }
 
-//    if((c1 == c3) && (c2 == c4));
-//    if(c3 == c4);
     //create consumer threads
     pthread_create(&c1, NULL, consumer, ((void*)cb1));
     pthread_create(&c2, NULL, consumer, ((void*)cb1));
@@ -138,23 +125,25 @@ int main(int argc, char* argv[]){
         exit(1);
     }
 
-//    printf("%zu\n", pthread_self());
-
-//    dup2(save, STDOUT_FILENO);
-//    printf("%d\n", save);
     return 0;
 }
 //==============================================================Distributor Thread
-//thread functions should be of type void* and any arguments
-// passed to it should be type void*
+//Input: fds for pipe shared with producer processes
+//Output: Adds items to buffers (Queues)
+/* The distributor is responsible for reading from the
+ * pipe that it shares with the producer processes. It
+ * then takes that data and adds it to the buffer that
+ * the consumer threads then write to file.
+ */
 void distributor(int* fd){
-//    printf("Parent TID: %zu\n", pthread_self());
     int done = 0;
     data new = {0, 0, 0, 0};
+
     if( (close(fd[1])) == -1){  //close write end
         perror("Close in distributor");
         exit(1);
     }
+
     //continue to read until both sentinel values are sent
     while(done < 2){
         //read one record each time
@@ -167,20 +156,10 @@ void distributor(int* fd){
             done++;
         }
 
-//        printf("New Count: %d, Type: %d\n", new.pCount, new.pType);
         if(new.pType == 1){
-//            printf("Type: %d, Count: %d\n", new.pType, new.pCount);
             enQueue(q1, new.pType, new.pCount, &lock1);
-
-//            if(q1->rear != NULL && q2->rear != NULL){
-//                printf("Distributor Queued:Type %d, Count: %d\n", q1->rear->pType, q1->rear->pCount);
-//            }
         }else if(new.pType == 2){
-//            printf("Type: %d, Count: %d\n", new.pType, new.pCount);
             enQueue(q2, new.pType, new.pCount, &lock2);
-//            if(q1->rear != NULL && q2->rear != NULL){
-//                printf("Distributor Queued:Type %d, Count: %d\n", q2->rear->pType, q2->rear->pCount);
-//            }
         }
         if(done == 2){
             break;
@@ -188,26 +167,3 @@ void distributor(int* fd){
     }
     return;
 }
-
-
-
-
-
-
-//=======================================================================Old buffer implementation (Ignore)
-//From OSTEP Chapter 30
-//create global variables for buffer1/2, fillptr1/2, max 1/2 and use them to pass in values for each buffer
-//void put(int value, int buffer[], int fill_ptr, int count, int max) {
-//    buffer[fill_ptr] = value;
-//    fill_ptr = (fill_ptr + 1) % max;
-//    count++;
-//}
-//int get(int use_ptr, int buffer[], int count, int max) {
-//    int tmp = buffer[use_ptr];
-//    use_ptr = (use_ptr + 1) % max;
-//    count--;
-//    return tmp;
-//}
-
-//    printf("Nullifying Errors: %d %d %d %d %d %d %d %d %d %d\n", prod1, prod2, count1, count2, use_ptr1, use_ptr2,
-//           fill_ptr1, fill_ptr2, buffer1[0], buffer2[0]); //nullify error

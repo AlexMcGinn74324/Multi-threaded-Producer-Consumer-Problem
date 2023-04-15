@@ -21,13 +21,21 @@ struct Queue* createQueue(int max){
     q->maxSize = max;
     return q;
 }
-// The function to add a key k to q
+/* Enqueue is a thread-safe way to add nodes to our queue. It
+ * uses mutex and conditional statements to do so. The lock->
+ * empty condition variable lets the consumer threads know that
+ * they have something to consume, and it also waits on the consumer
+ * processes if the queue is full.
+ */
+//Input: Buffer Queue, Product type/count of item to be added,
+//locks for queue.
+
+//Output: Adds item to queue
 void enQueue(struct Queue* q, int pType, int pCount, struct locks* lock){
 
     pthread_mutex_lock(lock->mutex);
     //=======================================LOCKED
 
-//    printf("Count:%d\n", pCount);
     //if we're at max capacity
     if(q->size == q->maxSize){
         pthread_cond_wait(lock->filled,lock->mutex);    //wait if it's filled
@@ -41,13 +49,12 @@ void enQueue(struct Queue* q, int pType, int pCount, struct locks* lock){
     if (q->rear == NULL) {
         q->front = q->rear = temp;
         q->size++;
-//        printf("Enqueue Front: %p\n", q->front);
+
         //signal the consumer that the queue is no longer empty
         if(pthread_cond_signal(lock->empty) != 0){
             perror("cond signal in enqueue");
             exit(1);
         }
-//        printf("Thread %zu:%d:%d signaled empty 1\n", pthread_self(), pCount, pType);
         pthread_mutex_unlock(lock->mutex);
         //==================================UNLOCKED
         return;
@@ -57,34 +64,33 @@ void enQueue(struct Queue* q, int pType, int pCount, struct locks* lock){
     q->rear->next = temp;
     q->rear = temp;
     q->size++;
-    //signal the consumer that the queue is no longer empty
 
+    //signal the consumer that the queue is no longer empty
     if(pthread_cond_signal(lock->empty) != 0){
         perror("cond signal in enqueue");
         exit(1);
     }
-//        printf("Thread %zu:%d:%d signaled empty 2\n", pthread_self(), pCount, pType);
     //==================================UNLOCKED
     pthread_mutex_unlock(lock->mutex);
 }
 
-// Function to remove a key from given queue q
+/* DeQueue removes an item from the queue from a
+ * consumer thread which is already locked and decre
+ * -ments the size of the queue.
+
+ * Input: Buffer Queue
+ * Output: Returned node */
 struct QNode* deQueue(struct Queue* q){
 //======================================locked already in consumer
 
-//    printf("Front %p\n", q->front);
-//    puts("deQueue 1");
-
     // If queue is empty, return NULL.
     if (q->front == NULL){
-//        puts("Queue is empty stupid...");
         return NULL;
     }
 
-//    puts("deQueue 1.5");
+
     struct QNode* temp = q->front;
 
-//    puts("deQueue 2");
     //if it's not pointing to anything it's the last element
     //clear the queue and return the node
     if(q->front->next == NULL){
@@ -93,14 +99,14 @@ struct QNode* deQueue(struct Queue* q){
         q->size--;
         return temp;
     }
-//    puts("deQueue 3");
+
         q->front = q->front->next;
 
     // If front becomes NULL, then change rear also as NULL
     if (q->front == NULL){
         q->rear = NULL;
     }
-//    puts("deQueue 4");
+
     //decrement size of queue
     q->size--;
     //Returned null should no longer be pointing to anything
